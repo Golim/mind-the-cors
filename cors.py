@@ -10,16 +10,13 @@ from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 
 from lib.crawler import Browser, Crawler
-from lib.wcde import WCDE
 
 import traceback
 import argparse
-import requests
 import logging
 import random
 import string
 import json
-import time
 import sys
 import os
 import re
@@ -63,7 +60,21 @@ variations_to_test  = []
 # List of URLs already tested for CORS misconfigurations
 tested = []
 
-browser = Browser()
+USER_AGENT = f'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/117.0.{random.randint(1, 50)}'
+_headers = {
+    'User-Agent': USER_AGENT,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'DNT': '1',
+    'Sec-GPC': '1'
+}
+
+browser = Browser(headers=_headers)
 
 # Logging
 logging.basicConfig()
@@ -74,6 +85,7 @@ logger.setLevel(logging.INFO)
 DEBUG = True
 SITE  = ''
 MAX_DEFAULT   = 10
+MAX_DOMAINS_DEFAULT = 2
 
 LOGS        = 'logs'
 STATS       = 'stats'
@@ -84,10 +96,6 @@ LOGOUT_BLACKLIST_REGEX = re.compile(
     '(sign|log|opt)[+-_]*(out|off)|leave',
     re.IGNORECASE
 )
-
-USER_AGENT = f'Mozilla/5.0 (Macintosh; Intel Mac OS X 12_1)' + \
-    f'AppleWebKit/537.36 (KHTML, like Gecko)' + \
-    f'Chrome/96.0.4664.11{random.randint(1, 9)} Safari/537.36'
 
 BLACKLISTED_DOMAINS = [
     'doubleclick.net', 'googleadservices.com',
@@ -165,7 +173,6 @@ def test_url(url, headers):
     if len(headers) == 0:
         headers = {
             'Origin': origin,
-            'User-Agent': USER_AGENT,
         }
 
     # Check if the site is using CORS on the URL to test
@@ -383,10 +390,16 @@ def main():
     parser.add_argument('-m', '--max',         default=MAX_DEFAULT,
                         help=f'Maximum number of URLs to crawl (Default: {MAX_DEFAULT})')
 
+    parser.add_argument('-D', '--domains',     default=MAX_DOMAINS_DEFAULT,
+                        help=f'Maximum number of domains to crawl (Default: {MAX_DOMAINS_DEFAULT})')
+
     parser.add_argument('-v', '--variations',
                         help=f'What variations to test for (Count from 1. e.g., "1-5" or "1,4")')
 
-    parser.add_argument('-r', '--retest', action='store_true',
+    parser.add_argument('-r', '--reproducible', action='store_true',
+                    help='Reproducible mode')
+
+    parser.add_argument('--retest', action='store_true',
                         help='Test already tested URLs')
 
     parser.add_argument('-d', '--debug', action='store_true',
@@ -396,6 +409,9 @@ def main():
 
     if args.debug:
         logger.setLevel(logging.DEBUG)
+
+    if args.reproducible:
+        random.seed(42)
 
     if args.url:
         c = 0
@@ -442,7 +458,9 @@ def main():
                 .replace('www.', '')
             )
 
-    
+    # Set the name of the logger to the site
+    logger.name = f'cors:{SITE}'
+
     # Create folder if they dont'exist
     if not os.path.exists('logs'):
         os.mkdir('logs')
@@ -466,7 +484,7 @@ def main():
 
     try:
         # Create the crawler
-        crawler = Crawler(SITE, max=int(args.max))
+        crawler = Crawler(site=SITE, max=int(args.max), max_domains=int(args.domains))
 
         # Get dictionaries from the files
         get_dictionaries(SITE, crawler)

@@ -4,22 +4,12 @@ __author__ = "Matteo Golinelli"
 __copyright__ = "Copyright (C) 2023 Matteo Golinelli"
 __license__ = "MIT"
 
-from requests.exceptions import SSLError, ConnectionError, ReadTimeout, TooManyRedirects, ChunkedEncodingError, InvalidHeader
-from urllib3.exceptions import NewConnectionError, MaxRetryError, ReadTimeoutError
 from urllib.parse import urlparse, urlunparse, urljoin, urldefrag
 from bs4 import BeautifulSoup
 
-import traceback
-import argparse
 import requests
 import urllib3
 import random
-import string
-import glob
-import json
-import time
-import sys
-import os
 import re
 
 class Browser:
